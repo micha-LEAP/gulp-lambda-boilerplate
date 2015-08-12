@@ -23,16 +23,17 @@ The purpose of this experiment was to see if bundling lambda functions as a self
 This is a trivial lambda that is only includes one small external dependency.
 
 * current JAWS: 2.2 MB
-* gulp-browserify JAWS: 658 BYTES
+* gulp-browserify JAWS un-compressed: 658 BYTES
 
 ##### "React-SSR"
 
-A little heavier example that imports the `react` and `moment` libraries.
+A little heavier example that imports the `react` library.
 
-[source]()
+[source](https://github.com/austinrivas/gulp-lambda-boilerplate/blob/react-ssr/src/index.js)
 
-* current JAWS:
-* gulp-browserify JAWS:
+* current JAWS: 2.8 MB
+* gulp-browserify uncompressed JAWS: 134 KB
+* gulp-browserify compressed: 50.8 KB
 
 ### Installation
 
