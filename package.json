@@ -5,7 +5,9 @@
   "main": "index.js",
   "author": "Austin Rivas <austinrivas@gmail.com>",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "react": "^0.13.3"
+  },
   "devDependencies": {
     "async": "^1.4.2",
     "aws-sdk": "^2.1.4",

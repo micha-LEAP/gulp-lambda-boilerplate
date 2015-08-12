@@ -1,5 +1,5 @@
 {
-  "FunctionName": "gulp_lambda_boilerplate",
+  "FunctionName": "gulp_ssr_react",
   "Handler": "index.handler",
   "Role": null,
   "Runtime": "nodejs",

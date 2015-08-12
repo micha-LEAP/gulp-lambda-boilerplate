@@ -7,7 +7,8 @@ describe("Gulp Lambda Boilerplate", function(){
     var testEvent = {};
     var testContext = {
       done: function(error, message) {
-        assert.equal("Demo Gulp Lambda Boilerplate", message);
+        var markup = '<html><head><title>test-title</title></head><body><img src=\"https://raw.githubusercontent.com/jaws-stack/JAWS-graphics/master/jaws_logo_javascript_aws.png\"></body></html>';
+        assert.equal(markup, message);
         done();
       }
     };
