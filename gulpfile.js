@@ -1,12 +1,26 @@
-var gulp = require('gulp');
-var gutil = require('gulp-util');
+var argv = require('yargs').argv;
+var async = require('async');
+var aws = require('aws-sdk');
+var browserify = require('browserify');
+var buffer = require('vinyl-buffer');
 var del = require('del');
-var rename = require('gulp-rename');
-var install = require('gulp-install');
-var zip = require('gulp-zip');
-var AWS = require('aws-sdk');
 var fs = require('fs');
+var gulp = require('gulp');
+var gulpIf = require('gulp-if');
+var gutil = require('gulp-util');
+var mocha = require('gulp-mocha');
 var runSequence = require('run-sequence');
+var source = require('vinyl-source-stream');
+var uglify = require('gulp-uglify');
+var zip = require('gulp-zip');
+
+require('dotenv').config({
+  path: process.cwd() + '/.env'
+});
+
+// Get Lambda Config
+if (!fs.existsSync(process.cwd() + '/lambda.json')) return gutil.log('****** Error: lambda.json is missing in this folder');
+var lambda_config = require(process.cwd() + '/lambda.json');
 
 // First we need to clean out the dist folder and remove the compiled zip file.
 gulp.task('clean', function(cb) {
@@ -15,90 +29,155 @@ gulp.task('clean', function(cb) {
   );
 });
 
-// The js task could be replaced with gulp-coffee as desired.
-gulp.task('js', function() {
-  gulp.src('index.js')
-    .pipe(gulp.dest('dist/'))
+gulp.task('js', function () {
+  // set up the browserify instance on a task basis
+  var b = browserify({
+    entries: './src/index.js',
+    standalone: 'lambda'
+  });
+
+  return b.bundle()
+    .pipe(source('index.js'))
+    .pipe(buffer())
+    .pipe(gulpIf(!argv.dev, uglify()))
+    .on('error', gutil.log)
+    .pipe(gulp.dest('./dist/'));
 });
 
-// Here we want to install npm packages to dist, ignoring devDependencies.
-gulp.task('npm', function() {
-  gulp.src('./package.json')
-    .pipe(gulp.dest('./dist/'))
-    .pipe(install({production: true}));
-});
-
-// Next copy over environment variables managed outside of source control.
-gulp.task('env', function() {
-  gulp.src('./config.env.production')
-    .pipe(rename('.env'))
-    .pipe(gulp.dest('./dist'))
+gulp.task('test', function () {
+  return gulp.src('./test/test.js', {read: false})
+    // gulp-mocha needs filepaths so you can't have any plugins before it
+    .pipe(mocha());
 });
 
 // Now the dist directory is ready to go. Zip it.
 gulp.task('zip', function() {
-  gulp.src(['dist/**/*', '!dist/package.json', 'dist/.*'])
+  return gulp.src(['dist/**/*', 'dist/.*'])
     .pipe(zip('dist.zip'))
     .pipe(gulp.dest('./'));
 });
 
-// Per the gulp guidelines, we do not need a plugin for something that can be
-// done easily with an existing node module. #CodeOverConfig
-//
-// Note: This presumes that AWS.config already has credentials. This will be
-// the case if you have installed and configured the AWS CLI.
-//
-// See http://aws.amazon.com/sdk-for-node-js/
+
 gulp.task('upload', function() {
 
-  // TODO: This should probably pull from package.json
-  AWS.config.region = 'us-east-1';
-  var lambda = new AWS.Lambda();
-  var functionName = 'video-events';
+  var upload = function (err, zipFile) {
 
-  lambda.getFunction({FunctionName: functionName}, function(err, data) {
-    if (err) {
-      if (err.statusCode === 404) {
-        var warning = 'Unable to find lambda function ' + deploy_function + '. '
-        warning += 'Verify the lambda function name and AWS region are correct.'
-        gutil.log(warning);
-      } else {
-        var warning = 'AWS API request failed. '
-        warning += 'Check your AWS credentials and permissions.'
-        gutil.log(warning);
-      }
-    }
+    var regions = process.env.AWS_LAMBDA_REGIONS.split(',');
+    async.map(regions, function(region, cb) {
 
-    // This is a bit silly, simply because these five parameters are required.
-    var current = data.Configuration;
-    var params = {
-      FunctionName: functionName,
-      Handler: current.Handler,
-      Mode: current.Mode,
-      Role: current.Role,
-      Runtime: current.Runtime
-    };
-
-    fs.readFile('./dist.zip', function(err, data) {
-      params['FunctionZip'] = data;
-      lambda.uploadFunction(params, function(err, data) {
-        if (err) {
-          var warning = 'Package upload failed. '
-          warning += 'Check your iam:PassRole permissions.'
-          gutil.log(warning);
-        }
+      aws.config.update({
+        accessKeyId: process.env.AWS_ADMIN_ACCESS_KEY,
+        secretAccessKey: process.env.AWS_ADMIN_SECRET_ACCESS_KEY,
+        region: region
       });
+
+      var lambda = new aws.Lambda({
+          apiVersion: '2015-03-31'
+      });
+
+      // Check If Lambda Function Exists Already
+      lambda.getFunction({
+          FunctionName: lambda_config.FunctionName
+      }, function(err, data) {
+
+          var params;
+
+          if (err && err.code !== 'ResourceNotFoundException') return gutil.log(err, err.stack);
+
+          if (!data || !data.Code) {
+
+
+              /**
+               * Create New Lambda Function
+               */
+
+              // Define Params for New Lambda Function
+              params = {
+                  Code: {
+                      ZipFile: zipFile
+                  },
+                  FunctionName: lambda_config.FunctionName,
+                  Handler: lambda_config.Handler ? lambda_config.Handler : 'index.handler',
+                  Role: lambda_config.Role ? lambda_config.Role : process.env.AWS_LAMBDA_ROLE_ARN,
+                  Runtime: lambda_config.Runtime,
+                  Description: lambda_config.Description ? lambda_config.Description : 'A Lambda function that was created with the JAWS framework',
+                  MemorySize: lambda_config.MemorySize,
+                  Timeout: lambda_config.Timeout
+              };
+
+              gutil.log('****** JAWS: Uploading your Lambda Function to AWS Lambda with these parameters: ');
+              gutil.log(params);
+
+              lambda.createFunction(params, cb);
+
+          } else {
+
+
+              /**
+               * Update Existing Lambda Function Code & Configuration
+               */
+
+              params = {
+                  ZipFile: zipFile,
+                  FunctionName: lambda_config.FunctionName
+              };
+              gutil.log('****** JAWS: Updating existing Lambda function code with these parameters:');
+              gutil.log(params);
+
+              lambda.updateFunctionCode(params, function(err, data) {
+
+                  if (err) return gutil.log(err, err.stack); // an error occurred
+
+                  var params = {
+                      FunctionName: lambda_config.FunctionName,
+                      Handler: lambda_config.Handler ? lambda_config.Handler : 'index.handler',
+                      Role: lambda_config.Role ? lambda_config.Role : process.env.AWS_LAMBDA_ROLE_ARN,
+                      Description: lambda_config.Description ? lambda_config.Description : 'A Lambda function that was created with the JAWS framework',
+                      MemorySize: lambda_config.MemorySize,
+                      Timeout: lambda_config.Timeout
+                  };
+
+                  gutil.log('****** JAWS: Updating existing Lambda function configuration with these parameters:');
+                  gutil.log(params);
+
+                  lambda.updateFunctionConfiguration(params, cb);
+              });
+          }
+      });
+
+    }, function(err, results) {
+
+        if (err) return gutil.log(err);
+
+        // Return
+        gutil.log('****** JAWS:  Success! - Your Lambda Function has been successfully deployed to AWS Lambda.  This Lambda Function\'s ARNs are: ');
+        for (i = 0; i < results.length; i++) gutil.log(results[i].FunctionArn);
+        return;
+
     });
-  });
+  };
+
+  return fs.readFile('./dist.zip', upload);
 });
 
 // The key to deploying as a single command is to manage the sequence of events.
-gulp.task('default', function(callback) {
+gulp.task('deploy', function(callback) {
   return runSequence(
     ['clean'],
-    ['js', 'npm', 'env'],
+    ['js'],
+    ['test'],
     ['zip'],
     ['upload'],
+    callback
+  );
+});
+
+gulp.task('build', function(callback) {
+  return runSequence(
+    ['clean'],
+    ['js'],
+    ['test'],
+    ['zip'],
     callback
   );
 });
