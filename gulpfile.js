@@ -37,10 +37,24 @@ gulp.task('js', function () {
     standalone: 'lambda'
   });
 
+  var uglyOptions = {
+    mangle: true,
+    compress: {
+      sequences: true,
+      dead_code: true,
+      conditionals: true,
+      booleans: true,
+      unused: true,
+      if_return: true,
+      join_vars: true,
+      drop_console: true
+    }
+  };
+
   return b.bundle()
     .pipe(source('index.js'))
     .pipe(buffer())
-    .pipe(gulpIf(!argv.dev, uglify()))
+    .pipe(gulpIf(!argv.dev, uglify(uglyOptions)))
     .on('error', gutil.log)
     .pipe(gulp.dest('./dist/'));
 });
