@@ -14,49 +14,87 @@ var source = require('vinyl-source-stream');
 var uglify = require('gulp-uglify');
 var zip = require('gulp-zip');
 
+var lambdaEnvPath = '/lambda/.env';
+var lambdaConfigPath = '/lambda/lambda.json';
+
 require('dotenv').config({
-  path: process.cwd() + '/.env'
+  path: process.cwd() + lambdaEnvPath
 });
 
-// Get Lambda Config
-if (!fs.existsSync(process.cwd() + '/lambda.json')) return gutil.log('****** Error: lambda.json is missing in this folder');
-var lambda_config = require(process.cwd() + '/lambda.json');
+if (!fs.existsSync(process.cwd() + lambdaConfigPath)) return gutil.log('****** Error: lambda.json is missing in this folder');
+var lambda_config = require(process.cwd() + lambdaConfigPath);
 
 // First we need to clean out the dist folder and remove the compiled zip file.
 gulp.task('clean', function(cb) {
   del('./dist',
-    del('./archive.zip', cb)
+    del('./dist.zip', cb)
   );
 });
 
-gulp.task('js', function () {
-  // set up the browserify instance on a task basis
-  var b = browserify({
-    entries: './src/index.js',
+var vendors = [
+  'react'
+];
+
+var uglyOptions = {
+  mangle: true,
+  compress: {
+    sequences: true,
+    dead_code: true,
+    conditionals: true,
+    booleans: true,
+    unused: true,
+    if_return: true,
+    join_vars: true,
+    drop_console: true
+  }
+};
+
+gulp.task('vendor-js', function () {
+  var stream = browserify({
+    debug: false,
+    require: vendors
+  });
+
+  return stream.bundle()
+              .pipe(source('vendors.js'))
+              .pipe(buffer())
+              .pipe(gulpIf(!argv.dev, uglify(uglyOptions)))
+              .on('error', gutil.log)
+              .pipe(gulp.dest('./dist/'));
+});
+
+gulp.task('client-js', function () {
+  var stream = browserify({
+    entries: ['./client/app.js'],
+    debug: true,
+    fullPaths: false
+  });
+
+  vendors.forEach(function(vendor) {
+    stream.external(vendor);
+  });
+
+  return stream.bundle()
+                .pipe(source('app.js'))
+                .pipe(buffer())
+                .pipe(gulpIf(!argv.dev, uglify(uglyOptions)))
+                .on('error', gutil.log)
+                .pipe(gulp.dest('./dist/'));
+});
+
+gulp.task('lambda-js', function () {
+  var stream = browserify({
+    entries: './lambda/index.js',
     node: true,
     standalone: 'lambda'
   });
 
-  var uglyOptions = {
-    mangle: true,
-    compress: {
-      sequences: true,
-      dead_code: true,
-      conditionals: true,
-      booleans: true,
-      unused: true,
-      if_return: true,
-      join_vars: true,
-      drop_console: true
-    }
-  };
-
-  return b.bundle()
-    .pipe(source('index.js'))
-    .pipe(buffer())
-    .pipe(gulpIf(!argv.dev, uglify(uglyOptions)))
-    .on('error', gutil.log)
-    .pipe(gulp.dest('./dist/'));
+  return stream.bundle()
+              .pipe(source('index.js'))
+              .pipe(buffer())
+              .pipe(gulpIf(!argv.dev, uglify(uglyOptions)))
+              .on('error', gutil.log)
+              .pipe(gulp.dest('./dist/'));
 });
 
 gulp.task('test', function () {
@@ -68,8 +106,8 @@ gulp.task('test', function () {
 // Now the dist directory is ready to go. Zip it.
 gulp.task('zip', function() {
   return gulp.src(['dist/**/*', 'dist/.*'])
-    .pipe(zip('dist.zip'))
-    .pipe(gulp.dest('./'));
+            .pipe(zip('dist.zip'))
+            .pipe(gulp.dest('./'));
 });
 
 
@@ -87,7 +125,7 @@ gulp.task('upload', function() {
       });
 
       var lambda = new aws.Lambda({
-          apiVersion: '2015-03-31'
+        apiVersion: '2015-03-31'
       });
 
       // Check If Lambda Function Exists Already
@@ -179,7 +217,7 @@ gulp.task('upload', function() {
 gulp.task('deploy', function(callback) {
   return runSequence(
     ['clean'],
-    ['js'],
+    ['vendor-js', 'client-js', 'lambda-js'],
     ['test'],
     ['zip'],
     ['upload'],
@@ -190,7 +228,7 @@ gulp.task('deploy', function(callback) {
 gulp.task('build', function(callback) {
   return runSequence(
     ['clean'],
-    ['js'],
+    ['vendor-js', 'client-js', 'lambda-js'],
     ['test'],
     ['zip'],
     callback
