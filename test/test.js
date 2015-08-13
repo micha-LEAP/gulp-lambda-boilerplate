@@ -7,7 +7,7 @@ describe("Gulp Lambda Boilerplate", function(){
     var testEvent = {};
     var testContext = {
       done: function(error, message) {
-        assert.equal('"Demo Gulp Lambda Boilerplate"', JSON.stringify(message));
+        assert.equal("Demo Gulp Lambda Boilerplate", message);
         done();
       }
     };

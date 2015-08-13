@@ -33,6 +33,7 @@ gulp.task('js', function () {
   // set up the browserify instance on a task basis
   var b = browserify({
     entries: './src/index.js',
+    node: true,
     standalone: 'lambda'
   });
 
