@@ -13,6 +13,16 @@ var HeadComponent = React.createClass({
           media: 'all',
           rel: 'stylesheet'
         }),
+        React.createElement("link", {
+          href: this.props.assets + '/favicon.ico',
+          type: 'image/x-icon',
+          rel: 'shortcut icon'
+        }),
+        React.createElement("link", {
+          href: this.props.assets + '/favicon.ico',
+          type: 'image/x-icon',
+          rel: 'icon'
+        }),
         React.createElement("script", {
           type: 'text/javascript',
           src: this.props.assets + '/vendors.js'
