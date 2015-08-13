@@ -7,5 +7,5 @@ exports.handler = function(event, context) {
     imgSrc: 'https://raw.githubusercontent.com/jaws-stack/JAWS-graphics/master/jaws_logo_javascript_aws.png'
   });
 
-  context.done(null, React.renderToStaticMarkup(root));
+  context.done(null, React.renderToString(root));
 };
