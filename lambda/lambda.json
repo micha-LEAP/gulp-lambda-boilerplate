@@ -1,4 +1,5 @@
 {
+  "apiVersion": "2015-03-31",
   "FunctionName": "gulp_ssr_react",
   "Handler": "index.handler",
   "Role": null,

@@ -1,7 +1,7 @@
 var assert = require("assert");
-var Lambda = require('../dist/index');
+var Lambda = require('../../dist/lambda/index');
 
-describe("Gulp Lambda Boilerplate", function(){
+describe("Gulp Lambda Boilerplate - Lambda", function(){
   it('should return a string', function(done){
 
     var testEvent = {};
