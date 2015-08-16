@@ -2,8 +2,9 @@ var async = require('async');
 var aws = require('aws-sdk');
 var fs = require('fs');
 var gutil = require('gulp-util');
-var lambdaConfig = require('../shared/config').lambdaConfig;
-var awsSDKConfig = require('../shared/config').awsSDKConfig;
+var getLambdaConfig = require('./resolve-lambda-path').getLambdaConfig;
+var getAwsSDKConfig = require('./configure-aws-sdk').getAwsSDKConfig;
+var getLambdaZipPath = require('./zip-lambda').getLambdaZipPath;
 
 var createNewLambdaFunction = function (lambda, cb) {
 
@@ -13,13 +14,13 @@ var createNewLambdaFunction = function (lambda, cb) {
       Code: {
           ZipFile: this.zipFile
       },
-      FunctionName: lambdaConfig.FunctionName,
-      Handler: lambdaConfig.Handler ? lambdaConfig.Handler : 'index.handler',
-      Role: lambdaConfig.Role ? lambdaConfig.Role : awsSDKConfig.lambdaRoleARN,
-      Runtime: lambdaConfig.Runtime,
-      Description: lambdaConfig.Description ? lambdaConfig.Description : 'Created by Gulp deploy-lambda',
-      MemorySize: lambdaConfig.MemorySize,
-      Timeout: lambdaConfig.Timeout
+      FunctionName: self.lambdaConfig.FunctionName,
+      Handler: self.lambdaConfig.Handler ? self.lambdaConfig.Handler : 'index.handler',
+      Role: self.lambdaConfig.Role ? self.lambdaConfig.Role : self.awsSDKConfig.lambdaRoleARN,
+      Runtime: self.lambdaConfig.Runtime,
+      Description: self.lambdaConfig.Description ? self.lambdaConfig.Description : 'Created by Gulp deploy-lambda',
+      MemorySize: self.lambdaConfig.MemorySize,
+      Timeout: self.lambdaConfig.Timeout
   };
 
   gutil.log('Creating new Lambda function ' + params.FunctionName);
@@ -34,16 +35,16 @@ var updateLambdaFunction = function (lambda, cb) {
 
   var code = {
       ZipFile: self.zipFile,
-      FunctionName: lambdaConfig.FunctionName
+      FunctionName: self.lambdaConfig.FunctionName
   };
 
   var config = {
-      FunctionName: lambdaConfig.FunctionName,
-      Handler: lambdaConfig.Handler ? lambdaConfig.Handler : 'index.handler',
-      Role: lambdaConfig.Role ? lambdaConfig.Role : awsSDKConfig.lambdaRoleARN,
-      Description: lambdaConfig.Description ? lambdaConfig.Description : 'Updated by Gulp deploy-lambda',
-      MemorySize: lambdaConfig.MemorySize,
-      Timeout: lambdaConfig.Timeout
+      FunctionName: self.lambdaConfig.FunctionName,
+      Handler: self.lambdaConfig.Handler ? self.lambdaConfig.Handler : 'index.handler',
+      Role: self.lambdaConfig.Role ? self.lambdaConfig.Role : self.awsSDKConfig.lambdaRoleARN,
+      Description: self.lambdaConfig.Description ? self.lambdaConfig.Description : 'Updated by Gulp deploy-lambda',
+      MemorySize: self.lambdaConfig.MemorySize,
+      Timeout: self.lambdaConfig.Timeout
   };
 
   lambda.updateFunctionCode(code, function(err, data) {
@@ -63,15 +64,15 @@ var deployLambdaToRegion = function(region, cb) {
   var self = this;
 
   var lambda = new aws.Lambda({
-    apiVersion: lambdaConfig.apiVersion,
-    accessKeyId: awsSDKConfig.accessKeyId,
-    secretAccessKey: awsSDKConfig.secretAccessKey,
+    apiVersion: self.lambdaConfig.apiVersion,
+    accessKeyId: self.awsSDKConfig.accessKeyId,
+    secretAccessKey: self.awsSDKConfig.secretAccessKey,
     region: region
   });
 
   // Check If Lambda Function Exists Already
   lambda.getFunction({
-      FunctionName: lambdaConfig.FunctionName
+      FunctionName: self.lambdaConfig.FunctionName
   }, function(err, data) {
 
       if (err && err.code !== 'ResourceNotFoundException') return gutil.log("lambda.getFunction Error: " + err, err.stack);
@@ -104,11 +105,15 @@ var handleDeloyResult = function(err, results) {
 module.exports = function (gulp, plugins) {
   return function (done) {
 
-    return fs.readFile('./dist/lambda.zip', function (err, zipFile) {
+    return fs.readFile(getLambdaZipPath(), function (err, zipFile) {
+
+      var awsSDKConfig = getAwsSDKConfig()
 
       var context = {
         done: done,
-        zipFile: zipFile
+        zipFile: zipFile,
+        lambdaConfig: getLambdaConfig(),
+        awsSDKConfig: awsSDKConfig
       };
 
       async.map(awsSDKConfig.regions, deployLambdaToRegion.bind(context), handleDeloyResult.bind(context));

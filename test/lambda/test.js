@@ -1,8 +1,10 @@
 var assert = require("assert");
-var Lambda = require('../../dist/lambda/index');
+var getLambdaDestIndexAbsPath = require(process.cwd() + '/tasks/resolve-lambda-path').getLambdaDestIndexAbsPath;
 
 describe("Gulp Lambda Boilerplate - Lambda", function(){
   it('should return a string', function(done){
+
+    var Lambda = require(getLambdaDestIndexAbsPath());
 
     var testEvent = {};
     var testContext = {
