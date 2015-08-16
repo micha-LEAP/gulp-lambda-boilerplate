@@ -38,17 +38,14 @@ var regions = process.env.AWS_LAMBDA_REGIONS.split(',');
 exports.awsSDKConfig = {
   accessKeyId: process.env.AWS_ADMIN_ACCESS_KEY,
   secretAccessKey: process.env.AWS_ADMIN_SECRET_ACCESS_KEY,
-  defaultRegion: defaultRegion,
+  region: defaultRegion,
   regions: regions,
   lambdaRoleARN: process.env.AWS_LAMBDA_ROLE_ARN
 };
 
 exports.clientS3Config = {
-  key: process.env.AWS_ADMIN_ACCESS_KEY,
-  secret: process.env.AWS_ADMIN_SECRET_ACCESS_KEY,
-  bucket: clientS3Bucket,
-  defaultRegion: defaultRegion,
-  regions: regions
+  accessKeyId: process.env.AWS_ADMIN_ACCESS_KEY,
+  secretAccessKey: process.env.AWS_ADMIN_SECRET_ACCESS_KEY
 }
 
 exports.lambdaConfig = lambdaConfig;
