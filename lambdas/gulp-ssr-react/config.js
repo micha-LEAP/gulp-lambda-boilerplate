@@ -1,4 +1,4 @@
-{
+exports.lambda = {
   "apiVersion": "2015-03-31",
   "FunctionName": "gulp_ssr_react",
   "Handler": "index.handler",
@@ -7,4 +7,4 @@
   "Description": "None",
   "MemorySize": 513,
   "Timeout": 5
-}
+};

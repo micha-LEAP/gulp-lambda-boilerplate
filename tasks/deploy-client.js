@@ -9,15 +9,15 @@ var gutil           = require('gulp-util');
 var deployClientToRegion = function(region, cb) {
 
   var self = this;
+
   self.awsSDKConfig.params.region = region;
+
   var s3bucket = new aws.S3(self.awsSDKConfig);
 
   s3bucket.putObject(self.objectParams, function(err, data) {
-    if (err) {
-      done("Error uploading data: ", err);
-    } else {
-      cb(err, data);
-    }
+
+    err ? done("Error uploading data: ", err) : cb(err, data);
+
   });
 
 };
@@ -25,17 +25,20 @@ var deployClientToRegion = function(region, cb) {
 var handleDeloyResult = function(err, results) {
 
   if (err) return this.done(err);
+
   gutil.log('Deployed to s3 ' + this.path);
+
   this.done();
 
 };
 
-module.exports = function (gulp, plugins) {
+exports.task = function (gulp, plugins) {
   return function (done) {
 
     fs.readFile('./dist/client.zip', function (err, zipFile) {
 
       var awsSDKConfig = getAwsSDKConfig();
+
       awsSDKConfig.params.Bucket = 'gjolund-dev-builds';
 
       var context = {
@@ -46,6 +49,7 @@ module.exports = function (gulp, plugins) {
           Body: zipFile
         }
       };
+
       context.path = awsSDKConfig.params.Bucket + '/' + context.objectParams.Key;
 
       async.map(awsSDKConfig.regions, deployClientToRegion.bind(context), handleDeloyResult.bind(context));

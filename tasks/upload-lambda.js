@@ -92,17 +92,20 @@ var deployLambdaToRegion = function(region, cb) {
 
 var handleDeloyResult = function(err, results) {
 
-  if (err) return this.done(err);
+  var self = this;
 
-  gutil.log('Lambda Function deployed to AWS Lambda.');
-  gutil.log('Deployed Lambda Function ARNs:');
-  for (i = 0; i < results.length; i++) gutil.log(results[i].FunctionArn);
+  if (err) return self.done(err);
 
-  this.done();
+  for (i = 0; i < results.length; i++) {
+    gutil.log('Deployed Lambda Function ARNs:');
+    gutil.log(self.lambdaConfig.FunctionName + ' : ' + results[i].FunctionArn);
+  }
+
+  self.done();
 
 };
 
-module.exports = function (gulp, plugins) {
+exports.task = function (gulp, plugins) {
   return function (done) {
 
     return fs.readFile(getLambdaZipPath(), function (err, zipFile) {
@@ -112,7 +115,7 @@ module.exports = function (gulp, plugins) {
       var context = {
         done: done,
         zipFile: zipFile,
-        lambdaConfig: getLambdaConfig(),
+        lambdaConfig: getLambdaConfig().lambda,
         awsSDKConfig: awsSDKConfig
       };
 

@@ -8,8 +8,9 @@ var uglify      = require('gulp-uglify');
 var uglyOptions = require('../shared/config').uglyOptions;
 var vendors     = require('../shared/config').vendors;
 
-module.exports = function (gulp, plugins) {
+exports.task = function (gulp, plugins) {
   return function (done) {
+
     var stream = browserify({
       entries: ['./client/app.js'],
       debug: true,
@@ -27,5 +28,6 @@ module.exports = function (gulp, plugins) {
           .pipe(gulp.dest('./dist/client'))
           .on('error', gutil.log)
           .on('end', done);
+
   };
 };

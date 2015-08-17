@@ -9,14 +9,19 @@ exports.task = function (gulp, plugin) {
   return function (done) {
 
     var bucketConfig = getAwsSDKConfig();
-    bucketConfig.params = require(getBucketPath());
+    bucketConfig.params = require(getBucketPath()).create;
 
     var s3bucket = new aws.S3(bucketConfig);
 
     s3bucket.createBucket(function(err, data) {
+
       if (err && err.code === 'BucketAlreadyOwnedByYou') {
+
+        gutil.log('Bucket ' + bucketConfig.params.Bucket + ' is already owned by you.');
         err = null;
+
       }
+
       done(err);
     });
 
