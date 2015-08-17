@@ -19,6 +19,12 @@ exports.getBucketPath = getBucketPath = function () {
 
 };
 
+exports.getBucket = getBucket = function () {
+
+  return require(getBucketPath());
+
+};
+
 exports.task = function (gulp, plugins) {
   return function (done) {
 
