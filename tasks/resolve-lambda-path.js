@@ -62,6 +62,16 @@ exports.getLambdaPath = getLambdaPath = function () {
 
 };
 
+exports.getLambdaTestPath = getLambdaTestPath = function () {
+
+  var lambdaTests = './lambdas/' + getLambdaPath() + '/test.js';
+
+  if(!fs.existsSync(lambdaTests)) throw new Error(lambdaTests + ' does not exist.');
+
+  return lambdaTests;
+
+};
+
 exports.task = function (gulp, plugin) {
   return function (done) {
 
