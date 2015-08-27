@@ -1,16 +1,15 @@
 var argv = require('yargs').argv;
 var async = require('async');
 var aws = require('aws-sdk');
-var browserify = require('browserify');
 var buffer = require('vinyl-buffer');
 var del = require('del');
 var fs = require('fs');
 var gulp = require('gulp');
 var gulpIf = require('gulp-if');
 var gutil = require('gulp-util');
+var install = require('gulp-install');
 var mocha = require('gulp-mocha');
 var runSequence = require('run-sequence');
-var source = require('vinyl-source-stream');
 var uglify = require('gulp-uglify');
 var zip = require('gulp-zip');
 
@@ -29,13 +28,8 @@ gulp.task('clean', function(cb) {
   );
 });
 
-gulp.task('js', function () {
-  // set up the browserify instance on a task basis
-  var b = browserify({
-    entries: './src/index.js',
-    node: true,
-    standalone: 'lambda'
-  });
+// The js task could be replaced with gulp-coffee as desired.
+gulp.task('js', function() {
 
   var uglyOptions = {
     mangle: true,
@@ -51,12 +45,17 @@ gulp.task('js', function () {
     }
   };
 
-  return b.bundle()
-    .pipe(source('index.js'))
-    .pipe(buffer())
+   return gulp.src('./src/**/*')
     .pipe(gulpIf(!argv.dev, uglify(uglyOptions)))
     .on('error', gutil.log)
-    .pipe(gulp.dest('./dist/'));
+    .pipe(gulp.dest('dist/'));
+});
+
+// Here we want to install npm packages to dist, ignoring devDependencies.
+gulp.task('npm', function() {
+  return gulp.src('./package.json')
+    .pipe(gulp.dest('./dist/'))
+    .pipe(install({production: true}));
 });
 
 gulp.task('test', function () {
@@ -111,7 +110,7 @@ gulp.task('upload', function() {
                   Code: {
                       ZipFile: zipFile
                   },
-                  FunctionName: lambda_config.FunctionName,
+                  FunctionName: process.env.AWS_LAMBDA_FUNCTIONNAME ||lambda_config.FunctionName,
                   Handler: lambda_config.Handler ? lambda_config.Handler : 'index.handler',
                   Role: lambda_config.Role ? lambda_config.Role : process.env.AWS_LAMBDA_ROLE_ARN,
                   Runtime: lambda_config.Runtime,
@@ -190,7 +189,7 @@ gulp.task('deploy', function(callback) {
 gulp.task('build', function(callback) {
   return runSequence(
     ['clean'],
-    ['js'],
+    ['js', 'npm'],
     ['test'],
     ['zip'],
     callback
